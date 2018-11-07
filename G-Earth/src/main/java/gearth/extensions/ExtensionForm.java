@@ -6,65 +6,23 @@ import javafx.stage.Stage;
 import gearth.protocol.HMessage;
 import gearth.protocol.HPacket;
 
+import java.util.concurrent.Semaphore;
+
 /**
  * Created by Jonas on 22/09/18.
  */
-public abstract class ExtensionForm extends Application {
+public abstract class ExtensionForm {
 
-    private Extension extension = null;
-    protected static String[] args;
-    private volatile Stage primaryStage = null;
+    volatile Extension extension;
+    volatile Stage primaryStage;
 
-    @Override
-    public void start(Stage primaryStage) throws Exception {
-        Platform.setImplicitExit(false);
-        setStageData(primaryStage);
-        this.primaryStage = primaryStage;
-        primaryStage.setOnCloseRequest(event -> {
-            event.consume();
-            Platform.runLater(primaryStage::hide);
-        });
-        ExtensionForm thiss = this;
-
-        ExtensionInfo extInfo = getClass().getAnnotation(ExtensionInfo.class);
-
-        Thread t = new Thread(() -> {
-            extension = new Extension(args) {
-                @Override
-                protected void init() {
-                    thiss.initExtension();
-                }
-
-                @Override
-                protected void onClick() {
-                    thiss.onClick();
-                }
-
-                @Override
-                protected void onStartConnection() {
-                    thiss.onStartConnection();
-                }
-
-                @Override
-                protected void onEndConnection() {
-                    thiss.onEndConnection();
-                }
-
-                @Override
-                ExtensionInfo getInfoAnnotations() {
-                    return extInfo;
-                }
-            };
-            extension.run();
-//            Platform.runLater(primaryStage::close);
-            //when the extension has ended, close this process
-            Platform.exit();
-        });
-        t.start();
+    protected static void runExtensionForm(String[] args, Class<? extends ExtensionForm> extension) {
+        ExtensionFormLauncher launcher = new ExtensionFormLauncher();
+        launcher.trigger(extension, args);
     }
 
-    public abstract void setStageData(Stage primaryStage) throws Exception;
 
+    public abstract ExtensionForm launchForm(Stage primaryStage) throws Exception;
 
     //wrap extension methods
     protected boolean requestFlags(Extension.FlagsCheckListener flagRequestCallback){
@@ -86,6 +44,8 @@ public abstract class ExtensionForm extends Application {
         return extension.sendToClient(packet);
     }
 
+    protected void onShow(){};
+    protected void onHide(){};
 
     /**
      * Gets called when a connection has been established with G-Earth.
@@ -96,9 +56,12 @@ public abstract class ExtensionForm extends Application {
     /**
      * The application got doubleclicked from the G-Earth interface. Doing something here is optional
      */
-    private void onClick(){
+    protected void onClick(){
         Platform.runLater(() -> {
             primaryStage.show();
+            primaryStage.requestFocus();
+            primaryStage.toFront();
+            onShow();
         });
     }
 
@@ -111,4 +74,12 @@ public abstract class ExtensionForm extends Application {
      * A connection with Habbo has ended
      */
     protected void onEndConnection(){}
+
+    protected boolean canLeave() {
+        return true;
+    }
+
+    protected boolean canDelete() {
+        return true;
+    }
 }
