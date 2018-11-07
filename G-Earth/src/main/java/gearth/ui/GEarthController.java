@@ -1,5 +1,6 @@
 package gearth.ui;
 
+import gearth.ui.logger.loggerdisplays.PacketLoggerFactory;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.layout.Pane;
@@ -17,6 +18,7 @@ import gearth.ui.tools.Tools;
 public class GEarthController {
 
     public Tab tab_Settings;
+    public Tab tab_Logger;
     public TabPane tabBar;
     private Stage stage = null;
     private volatile HConnection hConnection;
@@ -47,6 +49,10 @@ public class GEarthController {
         extensionsController.setParentController(this);
 
         tabBar.getTabs().remove(tab_Settings);
+
+        if (PacketLoggerFactory.usesUIlogger()) {
+            tabBar.getTabs().remove(tab_Logger);
+        }
 
 
         //custom header bar

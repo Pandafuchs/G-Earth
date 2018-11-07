@@ -446,20 +446,85 @@ public class HPacket implements StringifyAble {
         return this;
     }
 
+    private boolean canReadString(int index) {
+        if (index < packetInBytes.length - 1) {
+            int l = readUshort(index);
+            if (index + 1 + l < packetInBytes.length) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     //returns if done r not
-    public boolean replaceFirstString(String oldS, String newS) {
+    public HPacket replaceFirstString(String oldS, String newS) {
+        return replaceXStrings(oldS, newS, 1);
+    }
+    public HPacket replaceXStrings(String oldS, String newS, int amount) {
+        if (amount == 0) return this;
+
         int i = 6;
         while (i < packetInBytes.length - 1 - oldS.length()) {
             if (readUshort(i) == oldS.length() && readString(i).equals(oldS)) {
                 replaceString(i, newS);
-                return true;
+                i += 1 + newS.length();
+                amount -= 1;
+                if (amount == 0) {
+                    return this;
+                }
             }
             i++;
         }
-        return false;
+        return this;
     }
-    public HPacket replaceAllString(String oldS, String newS) {
-        while (replaceFirstString(oldS, newS)) {}
+    public HPacket replaceAllStrings(String oldS, String newS) {
+        return replaceXStrings(oldS, newS, -1);
+    }
+
+    public HPacket replaceFirstSubstring(String oldS, String newS) {
+        return replaceXSubstrings(oldS, newS, 1);
+    }
+    public HPacket replaceXSubstrings(String oldS, String newS, int amount) {
+        if (amount == 0) {
+            return this;
+        }
+
+        int max = packetInBytes.length;
+        int i = packetInBytes.length - 2 - oldS.length();
+        while (i >= 6) {
+            if (canReadString(i)) {
+                String s = readString(i);
+                System.out.println(s.contains(oldS));
+                if (s.contains(oldS) && i + 2 + s.length() <= max) {
+                    String replacement = s.replaceAll(oldS, newS);
+
+                    replaceString(i, replacement);
+                    i -= (1 + oldS.length());
+                    amount -= 1;
+                    if (amount == 0) {
+                        return this;
+                    }
+
+                    max = i;
+                }
+            }
+            i--;
+        }
+        return this;
+    }
+    public HPacket replaceAllSubstrings(String oldS, String newS) {
+        return replaceXSubstrings(oldS, newS, -1);
+    }
+
+    public HPacket replaceAllIntegers(int val, int replacement) {
+        int i = 6;
+        while (i < packetInBytes.length - 3) {
+            if (readInteger(i) == val) {
+                replaceInt(i, replacement);
+                i += 3;
+            }
+            i++;
+        }
         return this;
     }
 
@@ -551,6 +616,9 @@ public class HPacket implements StringifyAble {
         isEdited = remember;
     }
 
+    public void overrideEditedField(boolean edited) {
+        isEdited = edited;
+    }
 
     /**
      * returns "" if not found or not sure enough
@@ -845,9 +913,6 @@ public class HPacket implements StringifyAble {
     }
 
     public static void main(String[] args) {
-        HPacket packet = new HPacket("{l}{u:1442}");
-
-        System.out.println(packet.structureEquals("s,b"));
 
     }
 }
