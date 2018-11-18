@@ -26,7 +26,7 @@ public class AdminOnConnect extends Extension {
 
     private boolean done = true;
 
-    protected void init() {
+    protected void initExtension() {
         intercept(HMessage.Side.TOCLIENT, message -> {
             if (!done) {
                 HPacket packet = message.getPacket();
@@ -41,9 +41,11 @@ public class AdminOnConnect extends Extension {
                 }
             }
         });
+
+        intercept(HMessage.Side.TOSERVER, 4000, message -> done = false);
     }
 
-    protected void onStartConnection() {
-        done = false;
-    }
+//    protected void onStartConnection() {
+//        done = false;
+//    }
 }

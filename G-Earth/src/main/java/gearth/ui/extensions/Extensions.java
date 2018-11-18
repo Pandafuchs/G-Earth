@@ -1,5 +1,6 @@
 package gearth.ui.extensions;
 
+import gearth.misc.harble_api.HarbleAPIFetcher;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.scene.control.Button;
@@ -69,8 +70,9 @@ import java.util.*;
  *      -----------------------------------------------------------------------------------------------------
  *      |  4   |   FLAGS-CHECK**    | Body: String with G-Earth's boot flags (args from static gearth method) |
  *      -----------------------------------------------------------------------------------------------------
- *      |  5   |  CONNECTION START  |     Empty body, just a note that a new connection has been made,      |
+ *      |  5   |  CONNECTION START  |             just a note that a new connection has been made,          |
  *      |      |                    |   you could check this yourself as well (listen to out:4000 packet)   |
+ *      |      |                    |                      host/port, hotel version                         |
  *      -----------------------------------------------------------------------------------------------------
  *      |  6   |   CONNECTION END   |        Empty body, just a note that a connection has ended            |
 *      -----------------------------------------------------------------------------------------------------
@@ -148,9 +150,15 @@ public class Extensions extends SubForm {
 
         getHConnection().addStateChangeListener((oldState, newState) -> {
             if (newState == HConnection.State.CONNECTED) {
+                HarbleAPIFetcher.fetch(getHConnection().getHotelVersion());
                 synchronized (gEarthExtensions) {
                     for (GEarthExtension extension : gEarthExtensions) {
-                        extension.sendMessage(new HPacket(OUTGOING_MESSAGES_IDS.CONNECTIONSTART));
+                        extension.sendMessage(
+                                new HPacket(OUTGOING_MESSAGES_IDS.CONNECTIONSTART)
+                                        .appendString(getHConnection().getDomain())
+                                        .appendInt(getHConnection().getPort())
+                                        .appendString(getHConnection().getHotelVersion())
+                        );
                     }
                 }
             }
@@ -281,7 +289,12 @@ public class Extensions extends SubForm {
 
                     extension.sendMessage(new HPacket(OUTGOING_MESSAGES_IDS.INIT));
                     if (getHConnection().getState() == HConnection.State.CONNECTED) {
-                        extension.sendMessage(new HPacket(OUTGOING_MESSAGES_IDS.CONNECTIONSTART));
+                        extension.sendMessage(
+                                new HPacket(OUTGOING_MESSAGES_IDS.CONNECTIONSTART)
+                                        .appendString(getHConnection().getDomain())
+                                        .appendInt(getHConnection().getPort())
+                                        .appendString(getHConnection().getHotelVersion())
+                        );
                     }
 
                     extension.onRemoveClick(observable -> {
