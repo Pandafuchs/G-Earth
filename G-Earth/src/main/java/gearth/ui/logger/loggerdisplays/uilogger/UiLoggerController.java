@@ -91,7 +91,7 @@ public class UiLoggerController implements Initializable {
 
         ArrayList<Element> elements = new ArrayList<>();
 
-        String expr = packet.toExpression();
+        String expr = packet.toExpression(isIncoming ? HMessage.Side.TOCLIENT : HMessage.Side.TOSERVER);
 
         lblHarbleAPI.setText("HarbleAPI: " + (HarbleAPIFetcher.HARBLEAPI == null ? "False" : "True"));
         if ((viewMessageName || viewMessageHash) && HarbleAPIFetcher.HARBLEAPI != null) {
@@ -101,7 +101,7 @@ public class UiLoggerController implements Initializable {
                     packet.headerId()
             );
 
-            if (!(viewMessageName && !viewMessageHash && message.getName() == null)) {
+            if ( message != null && !(viewMessageName && !viewMessageHash && message.getName() == null)) {
                 if (viewMessageName && message.getName() != null) {
                     elements.add(new Element("["+message.getName()+"]", "messageinfo"));
                 }
