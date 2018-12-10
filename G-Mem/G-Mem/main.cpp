@@ -30,7 +30,7 @@ std::vector<pid_t> find_flash(void)
         char path[PROC_PIDPATHINFO_MAXSIZE] = {};
         proc_pidpath(proc_list[i].kp_proc.p_pid, path, sizeof(path));
         
-        if (strstr(path, "Fire") || strstr(path, "Helper")) {
+        if (strstr(path, "Fire") || strstr(path, "Chrom")) {
             if (is_flash_process(proc_list[i].kp_proc.p_pid))
                     ret.push_back(proc_list[i].kp_proc.p_pid);
         }
