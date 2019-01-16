@@ -1,5 +1,8 @@
-package gearth.ui;
+package gearth.ui.logger.loggerdisplays.uilogger;
 
+import gearth.misc.harble_api.HarbleAPI;
+import gearth.misc.harble_api.HarbleAPIFetcher;
+import gearth.protocol.HMessage;
 import gearth.protocol.HPacket;
 import gearth.ui.logger.loggerdisplays.PacketLogger;
 import javafx.application.Platform;
@@ -9,6 +12,7 @@ import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.Label;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
+import javafx.stage.Stage;
 import org.fxmisc.flowless.VirtualizedScrollPane;
 import org.fxmisc.richtext.StyleClassedTextArea;
 import org.fxmisc.richtext.model.StyleSpansBuilder;
@@ -27,15 +31,22 @@ public class UiLoggerController implements Initializable {
     public Label lblAutoScrolll;
     public CheckMenuItem chkAutoscroll;
     public CheckMenuItem chkSkipBigPackets;
+    public CheckMenuItem chkMessageName;
+    public CheckMenuItem chkMessageHash;
+    public Label lblHarbleAPI;
 
     private StyleClassedTextArea area;
+
+    private Stage stage;
 
     private boolean viewIncoming = true;
     private boolean viewOutgoing = true;
     private boolean displayStructure = true;
     private boolean autoScroll = true;
     private boolean skiphugepackets = true;
-
+    private boolean viewMessageName = true;
+    private boolean viewMessageHash = false;
+    private boolean alwaysOnTop = false;
 
     private volatile boolean initialized = false;
     private final List<Element> appendLater = new ArrayList<>();
@@ -60,6 +71,20 @@ public class UiLoggerController implements Initializable {
 
     }
 
+    private static String cleanTextContent(String text)
+    {
+//        // strips off all non-ASCII characters
+//        text = text.replaceAll("[^\\x00-\\x7F]", "");
+//
+//        // erases all the ASCII control characters
+        text = text.replaceAll("[\\p{Cntrl}&&[^\n\t]]", "");
+
+        // removes non-printable characters from Unicode
+//        text = text.replaceAll("\\p{C}", "");
+
+        return text.trim();
+    }
+
     public void appendMessage(HPacket packet, int types) {
         boolean isBlocked = (types & PacketLogger.MESSAGE_TYPE.BLOCKED.getValue()) != 0;
         boolean isReplaced = (types & PacketLogger.MESSAGE_TYPE.REPLACED.getValue()) != 0;
@@ -70,7 +95,26 @@ public class UiLoggerController implements Initializable {
 
         ArrayList<Element> elements = new ArrayList<>();
 
-        String expr = packet.toExpression();
+        String expr = packet.toExpression(isIncoming ? HMessage.Side.TOCLIENT : HMessage.Side.TOSERVER);
+
+        lblHarbleAPI.setText("HarbleAPI: " + (HarbleAPIFetcher.HARBLEAPI == null ? "False" : "True"));
+        if ((viewMessageName || viewMessageHash) && HarbleAPIFetcher.HARBLEAPI != null) {
+            HarbleAPI api = HarbleAPIFetcher.HARBLEAPI;
+            HarbleAPI.HarbleMessage message = api.getHarbleMessageFromHeaderId(
+                    (isIncoming ? HMessage.Side.TOCLIENT : HMessage.Side.TOSERVER),
+                    packet.headerId()
+            );
+
+            if ( message != null && !(viewMessageName && !viewMessageHash && message.getName() == null)) {
+                if (viewMessageName && message.getName() != null) {
+                    elements.add(new Element("["+message.getName()+"]", "messageinfo"));
+                }
+                if (viewMessageHash) {
+                    elements.add(new Element("["+message.getHash()+"]", "messageinfo"));
+                }
+                elements.add(new Element("\n", ""));
+            }
+        }
 
         if (isBlocked) elements.add(new Element("[Blocked]\n", "blocked"));
         else if (isReplaced) elements.add(new Element("[Replaced]\n", "replaced"));
@@ -103,7 +147,7 @@ public class UiLoggerController implements Initializable {
             }
         }
         if (!expr.equals("") && displayStructure && (!skiphugepackets || packet.length() <= 8000))
-            elements.add(new Element("\n" + expr, "structure"));
+            elements.add(new Element("\n" + cleanTextContent(expr), "structure"));
 
         elements.add(new Element("\n--------------------\n", ""));
 
@@ -125,6 +169,7 @@ public class UiLoggerController implements Initializable {
 
             for (Element element : elements) {
                 sb.append(element.text);
+
                 styleSpansBuilder.add(Collections.singleton(element.className), element.text.length());
             }
 
@@ -138,6 +183,10 @@ public class UiLoggerController implements Initializable {
                 area.requestFollowCaret();
             }
         });
+    }
+
+    public void setStage(Stage stage) {
+        this.stage = stage;
     }
 
     public void toggleViewIncoming() {
@@ -165,14 +214,21 @@ public class UiLoggerController implements Initializable {
     public void toggleSkipPackets(ActionEvent actionEvent) {
         skiphugepackets = !skiphugepackets;
     }
-}
 
-class Element {
-    final String text;
-    final String className;
+    public void toggleMessageName(ActionEvent actionEvent) {
+        viewMessageName = !viewMessageName;
+    }
 
-    Element(String text, String className) {
-        this.text = text;
-        this.className = className;
+    public void toggleMessageHash(ActionEvent actionEvent) {
+        viewMessageHash = !viewMessageHash;
+    }
+
+    public void toggleAlwaysOnTop(ActionEvent actionEvent) {
+        stage.setAlwaysOnTop(!alwaysOnTop);
+        alwaysOnTop = !alwaysOnTop;
+    }
+
+    public void clearText(ActionEvent actionEvent) {
+        area.clear();
     }
 }

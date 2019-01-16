@@ -1,7 +1,8 @@
-package gearth.ui.logger.loggerdisplays;
+package gearth.ui.logger.loggerdisplays.uilogger;
 
 import gearth.protocol.HPacket;
-import gearth.ui.UiLoggerController;
+
+import gearth.ui.logger.loggerdisplays.PacketLogger;
 import javafx.application.Platform;
 import javafx.event.Event;
 import javafx.event.EventHandler;
@@ -35,6 +36,8 @@ public class UiLogger implements PacketLogger {
             Scene scene = new Scene(root);
             scene.getStylesheets().add("/gearth/ui/bootstrap3.css");
             scene.getStylesheets().add("/gearth/ui/logger/uilogger/logger.css");
+            UiLoggerController controller = (UiLoggerController) loader.getController();
+            controller.setStage(stage);
 
             scene.addEventFilter(KeyEvent.KEY_PRESSED, new EventHandler<KeyEvent>() {
                 final KeyCombination keyCombIncoming = new KeyCodeCombination(KeyCode.I,

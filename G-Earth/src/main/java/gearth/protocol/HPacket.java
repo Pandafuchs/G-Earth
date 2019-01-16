@@ -1,15 +1,18 @@
 package gearth.protocol;
 
 import gearth.misc.StringifyAble;
+import gearth.misc.harble_api.HarbleAPI;
+import gearth.misc.harble_api.HarbleAPIFetcher;
 
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.Arrays;
 
 public class HPacket implements StringifyAble {
-    // te komen: toExpressions (+impl. expressies)
+
     private boolean isEdited = false;
     private byte[] packetInBytes;
     private int readIndex = 6;
@@ -32,6 +35,35 @@ public class HPacket implements StringifyAble {
     public HPacket(int header, byte[] bytes) {
         this(header);
         appendBytes(bytes);
+        isEdited = false;
+    }
+
+    /**
+     *
+     * @param header headerId
+     * @param objects can be a byte, integer, boolean, string, no short values allowed (use 2 bytes instead)
+     */
+    public HPacket(int header, Object... objects) throws InvalidParameterException {
+        this(header);
+        for (int i = 0; i < objects.length; i++) {
+            Object o = objects[i];
+            if (o instanceof Byte) {
+                appendByte((Byte)o);
+            }
+            else if (o instanceof Integer) {
+                appendInt((Integer)o);
+            }
+            else if (o instanceof String) {
+                appendString((String)o);
+            }
+            else if (o instanceof Boolean) {
+                appendBoolean((Boolean) o);
+            }
+            else {
+                throw new InvalidParameterException();
+            }
+        }
+
         isEdited = false;
     }
 
@@ -96,6 +128,10 @@ public class HPacket implements StringifyAble {
                     }
                     else if (type.equals("i")) {
                         ByteBuffer b = ByteBuffer.allocate(4).putInt(Integer.parseInt(inhoud));
+                        newString.append(new HPacket(b.array()).toString());
+                    }
+                    else if (type.equals("d")) {
+                        ByteBuffer b = ByteBuffer.allocate(8).putDouble(Double.parseDouble(inhoud));
                         newString.append(new HPacket(b.array()).toString());
                     }
                     else if (type.equals("b")) { // could be a byte or a boolean, no one cares
@@ -292,6 +328,15 @@ public class HPacket implements StringifyAble {
         return java.nio.ByteBuffer.wrap(btarray).getInt();
     }
 
+    public double readDouble(){
+        double result = readDouble(readIndex);
+        readIndex += 8;
+        return result;
+    }
+    public double readDouble(int index)	{
+        return java.nio.ByteBuffer.wrap(packetInBytes).getDouble(index);
+    }
+
     public int length()	{
         return readInteger(0);
     }
@@ -375,6 +420,14 @@ public class HPacket implements StringifyAble {
         isEdited = true;
         ByteBuffer b = ByteBuffer.allocate(4).putInt(i);
         for (int j = 0; j < 4; j++) {
+            packetInBytes[index + j] = b.array()[j];
+        }
+        return this;
+    }
+    public HPacket replaceDouble(int index, double d) {
+        isEdited = true;
+        ByteBuffer b = ByteBuffer.allocate(8).putDouble(d);
+        for (int j = 0; j < 8; j++) {
             packetInBytes[index + j] = b.array()[j];
         }
         return this;
@@ -539,6 +592,16 @@ public class HPacket implements StringifyAble {
         fixLength();
         return this;
     }
+    public HPacket appendDouble(double d) {
+        isEdited = true;
+        packetInBytes = Arrays.copyOf(packetInBytes, packetInBytes.length + 8);
+        ByteBuffer byteBuffer = ByteBuffer.allocate(8).putDouble(d);
+        for (int j = 0; j < 8; j++) {
+            packetInBytes[packetInBytes.length - 8 + j] = byteBuffer.array()[j];
+        }
+        fixLength();
+        return this;
+    }
     public HPacket appendByte(byte b) {
         isEdited = true;
         packetInBytes = Arrays.copyOf(packetInBytes, packetInBytes.length + 1);
@@ -618,6 +681,55 @@ public class HPacket implements StringifyAble {
 
     public void overrideEditedField(boolean edited) {
         isEdited = edited;
+    }
+
+
+    private String toExpressionFromGivenStructure(String struct) {
+        int oldReadIndex = readIndex;
+        resetReadIndex();
+
+        StringBuilder builder = new StringBuilder();
+        builder.append("{l}{u:").append(headerId()).append("}");
+
+        buildExpressionFromGivenStructure(struct, 0, builder);
+        readIndex = oldReadIndex;
+        return builder.toString();
+    }
+
+    private void buildExpressionFromGivenStructure(String struct, int indexInGivenStruct, StringBuilder builder) {
+        int prevInt = 0;
+
+        while (indexInGivenStruct < struct.length()) {
+            char c = struct.charAt(indexInGivenStruct++);
+            if (c == '(') {
+                for (int i = 0; i < prevInt; i++) buildExpressionFromGivenStructure(struct, indexInGivenStruct, builder);
+                int skipping = 1;
+                while (skipping > 0) {
+                    char c2 = struct.charAt(indexInGivenStruct++);
+                    if (c2 == '(') skipping++;
+                    else if (c2 == ')') skipping--;
+                }
+            }
+            else if (c == 'i') builder.append("{i:").append(prevInt = readInteger()).append('}');
+            else if (c == 's') builder.append("{s:").append(readString()).append('}');
+            else if (c == 'd') builder.append("{d:").append(readDouble()).append('}');
+            else if (c == 'b') builder.append("{b:").append(readByte()).append('}');
+            else if (c == 'B') builder.append("{b:").append(readBoolean()).append('}');
+            else return; // ')'
+        }
+    }
+
+    public String toExpression(HMessage.Side side) {
+        if (isCorrupted()) return "";
+
+        HarbleAPI.HarbleMessage msg;
+        if (HarbleAPIFetcher.HARBLEAPI != null &&
+                ((msg = HarbleAPIFetcher.HARBLEAPI.getHarbleMessageFromHeaderId(side, headerId())) != null)) {
+            if (msg.getStructure() != null) {
+                return toExpressionFromGivenStructure(msg.getStructure());
+            }
+        }
+        return toExpression();
     }
 
     /**
@@ -913,6 +1025,14 @@ public class HPacket implements StringifyAble {
     }
 
     public static void main(String[] args) {
+        HPacket packet = new HPacket("{l}{u:4564}{i:3}{i:0}{s:hi}{i:0}{i:1}{s:how}{i:3}{b:1}{b:2}{b:3}{i:2}{s:r u}{i:1}{b:120}{i:2}{b:true}");
+
+        String str = packet.toExpressionFromGivenStructure("i(isi(b))iB");
+
+        HPacket packetverify = new HPacket(str);
+
+        System.out.println(str);
+        System.out.println(packetverify.toString().equals(packet.toString()));
 
     }
 }

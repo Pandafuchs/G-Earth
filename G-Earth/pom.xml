@@ -8,12 +8,12 @@
 
     <packaging>jar</packaging>
 
-    <version>0.2</version>
+    <version>0.2.1</version>
 
     <parent>
         <groupId>G-Earth</groupId>
         <artifactId>G-Earth-Parent</artifactId>
-        <version>0.2</version>
+        <version>0.2.1</version>
     </parent>
 
     <build>
@@ -60,7 +60,8 @@
                     <descriptorRefs>
                         <descriptorRef>jar-with-dependencies</descriptorRef>
                     </descriptorRefs>
-                    <finalName>G-Earth-${project.version}</finalName>
+                    <!--<finalName>G-Earth-${project.version}</finalName>-->
+                    <finalName>G-Earth</finalName>
                     <appendAssemblyId>false</appendAssemblyId>
                 </configuration>
             </plugin>
